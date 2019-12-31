@@ -1,5 +1,5 @@
 [package]
-name = "rs18"
+name = "AOC2018"
 version = "0.1.0"
 authors = ["mengkeat <tay.christopher@gmail.com>"]
 edition = "2018"
