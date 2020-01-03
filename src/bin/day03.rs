@@ -46,19 +46,12 @@ impl FromStr for Claim
     }
 }
 
-fn parse_claims(s: &str) -> Vec<Claim>
+fn main()
 {
-    let mut claim_vec: Vec<Claim> = vec![];
-    for line in s.lines() {
-        let c = line.parse().unwrap();
-        claim_vec.push(c);
-    }
-    claim_vec
-}
-
-fn part1(claims: &Vec<Claim>) -> usize
-{
+    let dat = include_str!("Day03.txt");
+    let claims: Vec<Claim> = dat.lines().map(|l: &str| l.parse().unwrap()).collect();
     let mut m = HashMap::new();
+
     for c in claims {
         for x in c.x .. (c.x+c.w) {
             for y in c.y .. (c.y+c.h) {
@@ -67,12 +60,5 @@ fn part1(claims: &Vec<Claim>) -> usize
         }
     }
 
-    m.values().filter(|&&e| e > 1).count()
-}
-
-fn main()
-{
-    let dat = include_str!("Day03.txt");
-    let claims = parse_claims(dat);
-    println!("Part 1: {}", part1(&claims))
+    println!("Part 1: {}", m.values().filter(|&&e| e>1).count());
 }
