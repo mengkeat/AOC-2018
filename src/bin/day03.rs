@@ -3,9 +3,10 @@ extern crate lazy_static;
 extern crate regex;
 
 use regex::Regex;
-// use std::collections::HashMap;
+use std::collections::HashMap;
 use core::str::FromStr;
-// use std::result;
+use std::result;
+use std::error::Error;
 
 #[derive(Debug)]
 struct Claim 
@@ -17,13 +18,15 @@ struct Claim
     h: u32
 }
 
+type Result<T> = result::Result<T, Box<dyn Error>>;
+
 impl FromStr for Claim 
 {
-    type Err = &String;
+    type Err = Box<dyn Error>;
 
-    fn from_str(s: &str) -> Result<Claim, &String> {
+    fn from_str(s: &str) -> Result<Claim> {
         lazy_static!{
-            static ref RE: Regex = Regex::new(r"
+            static ref RE: Regex = Regex::new(r"(?x)
                 \#
                 (?P<id>[0-9]+)
                 \s+@\s+
@@ -32,7 +35,7 @@ impl FromStr for Claim
             ").unwrap();
         }
 
-        let caps = RE.captures(s)?;
+        let caps = RE.captures(s).unwrap();
         Ok(Claim{
             id: caps["id"].parse()?,
             x: caps["x"].parse()?,
@@ -47,14 +50,29 @@ fn parse_claims(s: &str) -> Vec<Claim>
 {
     let mut claim_vec: Vec<Claim> = vec![];
     for line in s.lines() {
-        let c = line.parse()?;
+        let c = line.parse().unwrap();
         claim_vec.push(c);
     }
     claim_vec
+}
+
+fn part1(claims: &Vec<Claim>) -> usize
+{
+    let mut m = HashMap::new();
+    for c in claims {
+        for x in c.x .. (c.x+c.w) {
+            for y in c.y .. (c.y+c.h) {
+                *m.entry((x,y)).or_insert(0) += 1;
+            }
+        }
+    }
+
+    m.values().filter(|&&e| e > 1).count()
 }
 
 fn main()
 {
     let dat = include_str!("Day03.txt");
     let claims = parse_claims(dat);
+    println!("Part 1: {}", part1(&claims))
 }
