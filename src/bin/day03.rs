@@ -46,10 +46,24 @@ impl FromStr for Claim
     }
 }
 
+fn part2(m: &HashMap<(u32,u32), u32>, claims: &Vec<Claim>) -> u32
+{
+    for c in claims {
+        let mut s = true;
+         for x in c.x .. (c.x+c.w) {
+            for y in c.y .. (c.y+c.h) {
+                s = s && match m.get(&(x,y)) { Some(1) => true, _ => false };
+            }
+        }
+        if s { return c.id };
+    }
+    return 0; 
+}
+
 fn main()
 {
     let dat = include_str!("Day03.txt");
-    let claims: Vec<Claim> = dat.lines().map(|l: &str| l.parse().unwrap()).collect();
+    let ref claims: Vec<Claim> = dat.lines().map(|l: &str| l.parse().unwrap()).collect();
     let mut m = HashMap::new();
 
     for c in claims {
@@ -61,4 +75,5 @@ fn main()
     }
 
     println!("Part 1: {}", m.values().filter(|&&e| e>1).count());
+    println!("Part 2: {}", part2(&m, &claims));
 }
