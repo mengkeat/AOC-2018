@@ -1,8 +1,3 @@
-// #[macro_use]
-// extern crate lazy_static;
-// extern crate regex;
-
-// use regex::Regex;
 use std::collections::HashMap;
 use core::str::FromStr;
 use std::result;
@@ -61,6 +56,13 @@ fn part1(hist: &HistType) -> u32
     return (m as u32) * (*id as u32);
 }
 
+fn part2(hist: &HistType) -> u32 
+{
+    let (id, _) = hist.iter().max_by_key(|(_, h)| h.iter().max()).unwrap();
+    let (m, _) = hist[id].iter().enumerate().max_by_key(|(_, c)| **c).unwrap();
+    return (m as u32) * (*id as u32);
+}
+
 fn main()
 {
     let dat = include_str!("Day04.txt");
@@ -71,4 +73,5 @@ fn main()
     let hist = construct_hist(&logs);
 
     println!("Part 1: {}", part1(&hist));
+    println!("Part 2: {}", part2(&hist));
 }
