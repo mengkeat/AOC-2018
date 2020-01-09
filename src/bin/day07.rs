@@ -27,7 +27,7 @@ fn part1(g: GraphType, mut dep: HashMap<char, u8>) -> String
     let mut order = String::new();
     let mut cand: BinaryHeap<Reverse<char>> = BinaryHeap::new();
  
-    for (&n, c) in dep.iter_mut() {
+    for (&n, c) in dep.iter() {
         if *c==0 { cand.push(Reverse(n)); }
     }
 
