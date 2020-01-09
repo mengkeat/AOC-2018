@@ -15,7 +15,6 @@ fn get_points(s: &str) -> Vec<Pt>
 fn part1(pts: &Vec<Pt>, x_max: i32, y_max: i32) -> i32
 {
     let mut area = vec![0; pts.len()];
-
     for x in 0..x_max {
         for y in 0..y_max {
             let dist_to_pts: Vec<i32> = pts.iter().map(|p| m_dist(*p, (x,y)) ).collect();
@@ -32,8 +31,20 @@ fn part1(pts: &Vec<Pt>, x_max: i32, y_max: i32) -> i32
             }
         }
     }
-
     return *area.iter().max().unwrap();
+}
+
+fn part2(pts: &Vec<Pt>, x_max: i32, y_max: i32) -> i32
+{
+    let mut count: i32 = 0;
+    for x in 0..x_max {
+        for y in 0..y_max {
+            if pts.iter().map(|p| m_dist(*p, (x,y))).sum::<i32>() < 10000 {
+                count += 1;
+            }
+        }
+    }
+    return count;
 }
 
 fn main()
@@ -45,4 +56,5 @@ fn main()
     let y_max = pts.iter().max_by_key(|p| p.1).unwrap().1;
 
     println!("Part 1: {}", part1(&pts, x_max, y_max));
+    println!("Part 2: {}", part2(&pts, x_max, y_max));
 }
