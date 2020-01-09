@@ -22,7 +22,7 @@ fn make_graph(s: &str) ->  (GraphType, HashMap<char, u8>)
     return (graph, dep_count);
 }
 
-fn part1(g: GraphType, mut dep: HashMap<char, u8>) -> String
+fn part1(g: &GraphType, mut dep: HashMap<char, u8>) -> String
 {
     let mut order = String::new();
     let mut cand: BinaryHeap<Reverse<char>> = BinaryHeap::new();
@@ -47,10 +47,37 @@ fn part1(g: GraphType, mut dep: HashMap<char, u8>) -> String
    return order;
 }
 
+fn part2(s: &String) -> u16
+{
+    let mut t: u16 = 0;
+    let mut tasks: Vec<u16> = s.chars().rev().map(|c| (c as u16)-4).collect();
+    let mut workers = [0u16; 5];
+
+    loop {
+        if tasks.len()>0 {
+            match workers.iter().find(|&&a| a==0) {
+                Some(i) => workers[*i as usize] = tasks.pop().unwrap(),
+                None => {
+                    let m: u16 = *workers.iter().min().unwrap();
+                    for w in workers.iter_mut() {
+                        *w -= m;
+                    }
+                    t += m;
+                }
+            }
+        }
+        else {
+            return t+ workers.iter().max().unwrap();
+        }
+    }
+}
+
 fn main()
 {
     let dat = include_str!("Day07.txt").trim();
     let (graph, dep_count) = make_graph(dat);
 
-    println!("Part 1: {}", part1(graph.clone(), dep_count.clone()) );
+    let order = part1(&graph, dep_count.clone());
+    println!("Part 1: {}", order);
+    println!("Part 2: {}", part2(&order));
 }
