@@ -1,42 +1,56 @@
 
-use std::collections::{HashMap, HashSet, BinaryHeap};
+use std::collections::{HashMap, BinaryHeap};
 use std::cmp::Reverse;
 
-type GraphType = HashMap<char, HashSet<char>>;
+type GraphType = HashMap<char, Vec<char>>;
 
-fn make_graph(s: &str) ->  GraphType
+fn make_graph(s: &str) ->  (GraphType, HashMap<char, u8>)
 {
     let mut graph = GraphType::new();
-    let mut src_set = HashSet::new();
+    let mut dep_count: HashMap<char, u8> = HashMap::new();
 
     s.lines().for_each(|l| {
         let src  = l.chars().nth(5).unwrap();
         let dest = l.chars().nth(36).unwrap();
-        graph.entry(dest).or_default().insert(src);
-        src_set.insert(src);
+        graph.entry(src).or_default().push(dest);
+        graph.entry(dest).or_default();
+
+        *dep_count.entry(dest).or_default() += 1;
+        dep_count.entry(src).or_default();
     });
-    for s in src_set { graph.entry(s).or_default(); }
-    return graph;
+
+    return (graph, dep_count);
 }
 
-fn part1(mut g: GraphType) -> String
+fn part1(g: GraphType, mut dep: HashMap<char, u8>) -> String
 {
     let mut order = String::new();
     let mut cand: BinaryHeap<Reverse<char>> = BinaryHeap::new();
-    let start: Vec<char> = g.iter()
-        .filter_map(|(n, set)| 
-            if set.len()==0 { return Some(*n); } else { return None; }
-        ).collect();
-    for n in start {
-        cand.push(Reverse(n));
+ 
+    for (&n, c) in dep.iter_mut() {
+        if *c==0 { cand.push(Reverse(n)); }
     }
-    return order;
+
+    while cand.len()!=0 {
+        let Reverse(curr_node) = cand.pop().unwrap();
+        order.push(curr_node);
+
+        for n in g.get(&curr_node).unwrap() {
+            let c = dep.entry(*n).or_default();
+            *c -= 1;
+            if *c==0 {
+                cand.push(Reverse(*n));
+            }
+        }
+    }
+
+   return order;
 }
 
 fn main()
 {
     let dat = include_str!("Day07.txt").trim();
-    let graph = make_graph(dat);
+    let (graph, dep_count) = make_graph(dat);
 
-    println!("{:?}", part1(graph.clone()));
+    println!("Part 1: {}", part1(graph.clone(), dep_count.clone()) );
 }
