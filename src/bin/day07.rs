@@ -27,8 +27,8 @@ fn part1(g: &GraphType, mut dep: HashMap<char, u8>) -> String
     let mut order = String::new();
     let mut cand: BinaryHeap<Reverse<char>> = BinaryHeap::new();
  
-    for (&n, c) in dep.iter() {
-        if *c==0 { cand.push(Reverse(n)); }
+    for (&n, &c) in dep.iter() {
+        if c==0 { cand.push(Reverse(n)); }
     }
 
     while cand.len()!=0 {
@@ -47,29 +47,39 @@ fn part1(g: &GraphType, mut dep: HashMap<char, u8>) -> String
    return order;
 }
 
-fn part2(s: &String) -> u16
+fn work(t: &u16, curr_work: &mut Vec<(u16, char)>, cand_tasks: &mut BinaryHeap<Reverse<char>>) {
+    while curr_work.len()<5 && cand_tasks.len()!=0 {
+        let Reverse(task) = cand_tasks.pop().unwrap();
+        curr_work.push((t+(task as u16)-4, task));
+    }
+}
+
+fn part2(g: &GraphType, mut dep: HashMap<char, u8>) -> u16
 {
     let mut t: u16 = 0;
-    let mut tasks: Vec<u16> = s.chars().rev().map(|c| (c as u16)-4).collect();
-    let mut workers = [0u16; 5];
+    let mut cand_tasks: BinaryHeap<Reverse<char>> = BinaryHeap::new();
+    let mut curr_work: Vec<(u16, char)> = Vec::new();
 
-    loop {
-        if tasks.len()>0 {
-            match workers.iter().find(|&&a| a==0) {
-                Some(i) => workers[*i as usize] = tasks.pop().unwrap(),
-                None => {
-                    let m: u16 = *workers.iter().min().unwrap();
-                    for w in workers.iter_mut() {
-                        *w -= m;
-                    }
-                    t += m;
-                }
+    for (&n, &c) in dep.iter() {
+        if c==0 { cand_tasks.push(Reverse(n)); }
+    }
+    work(&t, &mut curr_work, &mut cand_tasks);
+
+    while curr_work.len()!=0 || cand_tasks.len()!=0 {
+        let (min_time, min_task) = curr_work.iter().min_by_key(|(t,_)| t).unwrap().clone();
+        t = min_time;
+        curr_work.retain(|(tm,c)| *tm!=min_time && *c!=min_task);
+        for n in g.get(&min_task).unwrap() {
+            let c = dep.entry(*n).or_default();
+            *c -= 1;
+            if *c==0 {
+                cand_tasks.push(Reverse(*n));
             }
         }
-        else {
-            return t+ workers.iter().max().unwrap();
-        }
+        work(&t, &mut curr_work, &mut cand_tasks);
     }
+
+    return t;
 }
 
 fn main()
@@ -79,5 +89,5 @@ fn main()
 
     let order = part1(&graph, dep_count.clone());
     println!("Part 1: {}", order);
-    println!("Part 2: {}", part2(&order));
+    println!("Part 2: {}", part2(&graph, dep_count.clone()));
 }
