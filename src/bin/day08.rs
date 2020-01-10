@@ -26,6 +26,19 @@ fn sum_meta(n: &Node) -> u16
     return n.childs.iter().map(sum_meta).sum::<u16>() + n.meta.iter().sum::<u16>();
 }
 
+fn value(n: &Node) -> u16
+{
+    if n.childs.len()==0{
+        return n.meta.iter().sum::<u16>();
+    }
+    else {
+        return n.meta.iter()
+                .filter_map(|i| n.childs.get((*i as usize)-1) )
+                .map(value)
+                .sum::<u16>();
+    }
+}
+
 fn main()
 {
     let dat: Vec<u16> = include_str!("Day08.txt").trim()
@@ -36,4 +49,5 @@ fn main()
     let node = make_node(&mut rev_dat.clone());
 
     println!("Part 1: {}", sum_meta(&node));
+    println!("Part 2: {}", value(&node));
 }
