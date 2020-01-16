@@ -70,7 +70,7 @@ impl Iterator for TunnelPots {
 
 fn main()
 {
-    let GEN: i64 = 50_000_000_000;
+    let gen: i64 = 50_000_000_000;
     let dat: Vec<&str> = include_str!("Day12.txt").lines().collect();
     let pots = TunnelPots::new(&dat);
 
@@ -83,4 +83,6 @@ fn main()
         println!("Count for {:?} = {}  iteration: {} diff: {}", s, curr_count, count, curr_count-prev);
         prev = curr_count;
     }
+    // 78 is derived from the the difference printed previously which stablizes from iteration to iteration
+    println!("Part 2: {} ", prev as i64+ (gen-count as i64)*78);
 }
