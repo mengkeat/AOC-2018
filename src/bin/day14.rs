@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 
 const R: usize = 190221;
 // const R: usize = 9;
@@ -25,28 +26,42 @@ impl Recipes {
         }
         self.e1 = (self.e1+self.seq[self.e1] as usize+1) % self.seq.len();
         self.e2 = (self.e2+self.seq[self.e2] as usize+1) % self.seq.len();
+    }
+}
 
-        // for i in 0..self.seq.len() {
-        //     if i==self.e1 {
-        //         print!("({}) ", self.seq[i]);
-        //     }
-        //     else if i==self.e2 {
-        //         print!("[{}] ", self.seq[i]);
-        //     }
-        //     else {
-        //         print!(" {}  ", self.seq[i]);
-        //     }
-        // }
-        // println!();
+fn part1(rec: &mut Recipes) 
+{
+    while rec.seq.len() < R+10 {
+        rec.next();
+    }
+    let score: String = rec.seq[R..].iter().map(|i| i.to_string()).collect();
+    println!("Part 1: {}", score);
+}
+
+fn part2(rec: &mut Recipes)
+{
+    let sz = R.to_string().len();
+    let mut i: usize = 0;
+    let mut a: VecDeque<u8> = VecDeque::new();
+
+    loop {
+        a.pop_front();
+        while a.len()<sz {
+            if i>=rec.seq.len() { rec.next(); }
+            a.push_back(rec.seq[i]);
+            i += 1;
+        }
+        let curr: usize = a.iter().fold(0, |sum, &i| sum*10+i as usize);
+        if curr == R {
+            println!("Part 2: {}", i-sz);
+            return;
+        }
     }
 }
 
 fn main() 
 {
     let mut rec = Recipes::new();
-    while rec.seq.len() < R+10 {
-        rec.next();
-    }
-    let score: String = rec.seq[R..].iter().map(|i| i.to_string()).collect();
-    println!("Part 1: {}", score);
+    part1(&mut rec);
+    part2(&mut rec);
 }
