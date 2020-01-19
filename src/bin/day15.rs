@@ -49,7 +49,7 @@ impl Cave {
             }
         }
         cave.compute_all_dist()?;
-        return Ok(cave);
+        Ok(cave)
     }
 
     fn compute_all_dist(&mut self) -> Result<()> {
@@ -67,24 +67,22 @@ impl Cave {
         let neigh = &[(1,0), (-1,0), (0,1), (0,-1)];        
 
         q.push_back((start.0, start.1, 0));
-        while q.len()>0 {
-            let (x,y,d) = q.pop_front().unwrap();
-            dmap.insert((x as isize,y as isize), d);
-            
-            for (dx,dy) in neigh{
-                let cand = ((y+dy) as isize, (x+dx) as isize);
-                let mut add = false;
-                match self.map.get(&cand) {
+        while let Some((y,x,d)) = q.pop_front() {
+            dmap.insert((y,x), d);
+            for (dy,dx) in neigh{
+                let cand = (y+dy, x+dx);
+                let add = match self.map.get(&cand) {
                     Some(&c) => if c==0 {
-                        if !dmap.contains_key(&cand) { add = true; }
-                        else if *dmap.get(&cand).unwrap() > (d+1) { add = true; }
-                    }
-                    _ => { println!("Map element not found"); }
-                }
-                if add { q.push_back((cand.0, cand.1, d+1)); }
+                                    if !dmap.contains_key(&cand) { true }
+                                    else if *dmap.get(&cand).unwrap() > (d+1) { true }
+                                    else { false }
+                                } 
+                                else { false },
+                    _ => { println!("Map element {:?} not found", cand); false }
+                };
+                if add && !q.contains(&(cand.0, cand.1, d+1)) { q.push_back((cand.0, cand.1, d+1)); }
             }
         }
-
         return dmap;
     }
 }
@@ -92,7 +90,7 @@ impl Cave {
 fn main() -> Result<()>
 {
     let dat = include_str!("Day15.txt");
-    let mut cave = Cave::new(&dat)?;
+    let cave = Cave::new(&dat)?;
 
     println!("{:?}", cave.units);
     // println!("{:?}", cave.map);
