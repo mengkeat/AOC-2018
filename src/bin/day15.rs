@@ -8,7 +8,7 @@ macro_rules! err {
 
 type Result<T> = result::Result<T, Box<dyn Error>>;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 enum Race { Elf, Goblin }
 
 #[derive(Debug)]
@@ -19,6 +19,14 @@ struct Unit {
     attack: i16,
     hp: i16,
     killed: bool,
+}
+
+impl Unit {
+    fn coords_in_range(&self) -> Vec<(isize, isize)> {
+        (&[(1,0), (-1,0), (0,1), (0,-1)]).iter().map(|(dy,dx)|
+            (self.y+dy, self.x+dx)
+        ).collect()
+    }
 }
 
 type MapType = BTreeMap<(isize, isize), u16>;
@@ -84,6 +92,36 @@ impl Cave {
             }
         }
         return dmap;
+    }
+
+    fn next(&mut self) -> Option<()> {
+        for i in 0..self.units.len() {
+            let ref u = self.units[i];
+            // Find nearest attack pos in range
+            let dist_to_u = self.dist_map_cache.get(&(u.y, u.x)).unwrap();
+            let cand_in_range = self.units.iter()
+                                .filter_map(|v| if u.race!=v.race { 
+                                                    Some(v.coords_in_range()) 
+                                                } else {None} )
+                                .flatten();
+            let (nd, ny, nx)= cand_in_range.map(|(y,x)| (dist_to_u.get(&(y,x)).unwrap(), y, x) ).min()?;
+
+            // Move if not already in attack position
+            if *nd>0 {
+                let dist_to_target = self.dist_map_cache.get(&(ny, nx))?;
+                let coords_in_range = u.coords_in_range();
+                let (_min_dist, min_coord) = coords_in_range.iter().map(|c| (dist_to_target.get(c).unwrap(), c) ).min()?;
+                let ref mut mutu = self.units[i];
+                mutu.y = min_coord.0;
+                mutu.x = min_coord.1;
+            }
+
+            // If in attack pos, do attack
+            if *nd==1 {
+
+            }
+        }
+        return Some(());
     }
 }
 
