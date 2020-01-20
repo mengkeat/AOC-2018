@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 use std::error::Error;
 use std::result;
 use std::cmp;
@@ -8,11 +8,15 @@ macro_rules! err {
 }
 
 type Result<T> = result::Result<T, Box<dyn Error>>;
+type MapCoord = (isize, isize);
+type MapType = BTreeMap<MapCoord, u16>;
 
-#[derive(Debug, Eq, PartialEq)]
+static NEIGH_D: &'static [(isize, isize)] = &[(1,0), (-1,0), (0,1), (0,-1)];
+
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 enum Race { Elf, Goblin }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy)]
 struct Unit {
     race: Race,
     x: isize,
@@ -23,10 +27,10 @@ struct Unit {
 }
 
 impl Unit {
-    fn coords_in_range(&self) -> Vec<(isize, isize)> {
-        (&[(1,0), (-1,0), (0,1), (0,-1)]).iter().map(|(dy,dx)|
-            (self.y+dy, self.x+dx)
-        ).collect()
+    fn coords_in_range(&self) -> Vec<MapCoord> {
+        NEIGH_D.iter()
+            .map(|(dy,dx)|  (self.y+dy, self.x+dx) )
+            .collect()
     }
 }
 
@@ -42,26 +46,23 @@ impl PartialOrd for Unit {
     }
 }
 
-type MapType = BTreeMap<(isize, isize), u16>;
-
 #[derive(Debug)]
 struct Cave {
-    units: Vec<Unit>,
+    units: BTreeMap<MapCoord, Unit>,
     map: MapType,
-    dist_map_cache: HashMap<(isize, isize), MapType>,   
 }
 
 impl Cave {
 
     fn new(dat: &str) -> Result<Self> {
-        let mut cave = Cave {units: Vec::new(), map: MapType::new(), dist_map_cache: HashMap::new() };
+        let mut cave = Cave {units: BTreeMap::new(), map: MapType::new() };
         for (y, row_str) in dat.lines().enumerate() {
             for (x, ele) in row_str.char_indices() {
                 let _x = x as isize;
                 let _y = y as isize;
                 let map_ele = match ele {
-                    'E' => { cave.units.push( Unit{race: Race::Elf, x: _x, y: _y, attack: 3, hp: 200, killed: false}); 0 },
-                    'G' => { cave.units.push( Unit{race: Race::Goblin, x: _x, y: _y, attack: 3, hp: 200, killed: false}); 0 },
+                    'E' => { cave.units.insert( (_y, _x), Unit{race: Race::Elf, x: _x, y: _y, attack: 3, hp: 200, killed: false}); 0 },
+                    'G' => { cave.units.insert( (_y, _x), Unit{race: Race::Goblin, x: _x, y: _y, attack: 3, hp: 200, killed: false}); 0 },
                     '.' => 0,
                     '#' => 1,
                     _ => { return err!("Error reading map in from data file!"); }
@@ -69,20 +70,10 @@ impl Cave {
                 cave.map.insert((_y, _x), map_ele);
             }
         }
-        cave.compute_all_dist()?;
         Ok(cave)
     }
 
-    fn compute_all_dist(&mut self) -> Result<()> {
-        for (&(y,x), &c) in self.map.iter() {
-            if c==0 {
-                self.dist_map_cache.insert((y,x), self.distance_map((y,x)));
-            }            
-        }
-        Ok(())
-    }
-
-    fn distance_map(&self, start: (isize, isize)) -> MapType  {
+    fn distance_map(&self, start: &MapCoord) -> MapType  {
         let mut dmap = MapType::new();
         let mut q: VecDeque<(isize, isize, u16)> = VecDeque::new();
         let neigh = &[(1,0), (-1,0), (0,1), (0,-1)];        
@@ -92,6 +83,7 @@ impl Cave {
             dmap.insert((y,x), d);
             for (dy,dx) in neigh{
                 let cand = (y+dy, x+dx);
+                if self.units.contains_key(&cand) { continue; }
                 let add = match self.map.get(&cand) {
                     Some(&c) => if c==0 {
                                     if !dmap.contains_key(&cand) { true }
@@ -107,32 +99,71 @@ impl Cave {
         return dmap;
     }
 
+    // Returns the coordinate in range and the associated chosen unit's coordinate
+    fn nearest_target(&self, a: &Unit) -> Option<(MapCoord, MapCoord)> {
+        let mut cand_targets: Vec<(u16, MapCoord, MapCoord)> = Vec::new();
+        let dist_to_a = self.distance_map(&(a.y, a.x));
+
+        for (tgt_coord, tgt_unit) in self.units.iter() {
+            if a.race==tgt_unit.race { continue; }
+            for c in tgt_unit.coords_in_range() {
+                if dist_to_a.contains_key(&c) {
+                    cand_targets.push( (dist_to_a[&c], c, *tgt_coord));
+                }
+            }
+        }
+        let (_, min_coord, tgt_coord) = cand_targets.iter().min()?;
+        Some((*min_coord, *tgt_coord))
+    }
+
+    // Moves unit from src_coord towards dst_coord
+    fn unit_next(&self, src_coord: &MapCoord, dst_coord: &MapCoord) -> Option<MapCoord> {
+        if src_coord == dst_coord { 
+            return Some(*src_coord); 
+        }
+        let dist_to_dst = self.distance_map(dst_coord);
+        let (_min_dist, min_coord) = NEIGH_D.iter()
+            .filter_map(|(dy,dx)| {
+                let c = (src_coord.0+dy, src_coord.1+dx);
+                dist_to_dst.get(&c).map(|d| (d, c))
+            })
+            .min()?;
+        return Some(min_coord);
+    }
+
+    fn move_unit(&mut self, unit_coord: &MapCoord, next_coord: &MapCoord)  {
+        let mut new_unit = self.units[&unit_coord].clone();
+        new_unit.x = next_coord.1;
+        new_unit.y = next_coord.0;
+        self.units.remove(&unit_coord);
+        self.units.insert(*next_coord, new_unit);
+    }
+
+    fn attack(&mut self, src: &MapCoord, dst: &MapCoord) {
+        let attack = self.units[dst].attack;
+        if NEIGH_D.contains(&(dst.0-src.0, dst.1-src.1)) {
+            let dst_unit = self.units.get_mut(&dst).unwrap();
+            dst_unit.hp -= attack;
+        }        
+    }
+
     fn next(&mut self) -> Option<()> {
-        for i in 0..self.units.len() {
-            let ref u = self.units[i];
+        let all_coords: Vec<_> = self.units.keys().cloned().collect();
+        for unit_coord in all_coords {
+            println!("Processing for unit at coord {:?}", unit_coord);
+            println!("------------------------------------");
+            let src_unit = self.units[&unit_coord];
             // Find nearest attack pos in range
-            let dist_to_u = self.dist_map_cache.get(&(u.y, u.x)).unwrap();
-            let cand_in_range = self.units.iter()
-                                .filter_map(|v| if u.race!=v.race { 
-                                                    Some(v.coords_in_range()) 
-                                                } else {None} )
-                                .flatten();
-            let (nd, ny, nx)= cand_in_range.map(|(y,x)| (dist_to_u.get(&(y,x)).unwrap(), y, x) ).min()?;
+            let (tgt_inrange_coord, _tgt_coord) = self.nearest_target(&src_unit)?;
+            println!("Target in range {:?} of target coord: {:?}", tgt_inrange_coord, _tgt_coord);
 
-            // Move if not already in attack position
-            if *nd>0 {
-                let dist_to_target = self.dist_map_cache.get(&(ny, nx))?;
-                let coords_in_range = u.coords_in_range();
-                let (_min_dist, min_coord) = coords_in_range.iter().map(|c| (dist_to_target.get(c).unwrap(), c) ).min()?;
-                let ref mut mutu = self.units[i];
-                mutu.y = min_coord.0;
-                mutu.x = min_coord.1;
-            }
+            // Make move if necessary
+            let next_coord = self.unit_next(&unit_coord, &tgt_inrange_coord);
+            next_coord.map(|c| self.move_unit(&unit_coord, &c));
+            println!("Moving to next coordinate: {:?}", next_coord);
 
-            // If in attack pos, do attack
-            if *nd==1 {
-
-            }
+            // Perform attack if in range
+            next_coord.map(|c| self.attack(&c, &tgt_inrange_coord));
         }
         return Some(());
     }
@@ -141,10 +172,12 @@ impl Cave {
 fn main() -> Result<()>
 {
     let dat = include_str!("Day15.txt");
-    let cave = Cave::new(&dat)?;
+    let mut cave = Cave::new(&dat)?;
 
     println!("{:?}", cave.units);
     // println!("{:?}", cave.map);
+
+    while let Some(_) = cave.next() { };
 
     Ok(())
 }
