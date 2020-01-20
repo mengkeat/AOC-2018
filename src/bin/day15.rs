@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::error::Error;
 use std::result;
+use std::cmp;
 
 macro_rules! err {
     ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) }
@@ -11,7 +12,7 @@ type Result<T> = result::Result<T, Box<dyn Error>>;
 #[derive(Debug, Eq, PartialEq)]
 enum Race { Elf, Goblin }
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 struct Unit {
     race: Race,
     x: isize,
@@ -26,6 +27,18 @@ impl Unit {
         (&[(1,0), (-1,0), (0,1), (0,-1)]).iter().map(|(dy,dx)|
             (self.y+dy, self.x+dx)
         ).collect()
+    }
+}
+
+impl Ord for Unit {
+    fn cmp(&self, rhs: &Unit) -> cmp::Ordering {
+        self.partial_cmp(rhs).unwrap()
+    }
+}
+
+impl PartialOrd for Unit {
+    fn partial_cmp(&self, rhs: &Unit) -> Option<cmp::Ordering> {
+        Some((self.y, self.x).cmp(&(rhs.y, rhs.x)))
     }
 }
 
