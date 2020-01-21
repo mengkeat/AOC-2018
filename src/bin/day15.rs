@@ -98,19 +98,31 @@ impl Cave {
         return dmap;
     }
 
+    // Given src and tgt units, computes the valid adjacent (distance, in_range_coord)
+    // fn get_valid_adj(&self, src: &MapCoord, tgt: &MapCoord) -> Vec<(u16, MapCoord)> {
+    //     let tgt_unit = self.units[&tgt];
+    //     tgt_unit.coords_in_range().iter()
+    //         .
+    // }
+
     // Returns the coordinate in range and the associated chosen unit's coordinate
-    fn nearest_target(&self, a: &Unit) -> Option<(MapCoord, MapCoord)> {
+    fn nearest_in_range(&self, a: &Unit) -> Option<(MapCoord, MapCoord)> {
         let mut cand_targets: Vec<(u16, MapCoord, MapCoord)> = Vec::new();
         let dist_to_a = self.distance_map(&(a.y, a.x));
 
         for (tgt_coord, tgt_unit) in self.units.iter() {
             if a.race==tgt_unit.race { continue; }
             for c in tgt_unit.coords_in_range() {
-                if dist_to_a.contains_key(&c) {
+                if dist_to_a.contains_key(&c) && !self.units.contains_key(&c) {
                     cand_targets.push( (dist_to_a[&c], c, *tgt_coord));
                 }
             }
         }
+        // self.units.iter()
+        //     .filter(|tgt_c, tgt_u| a.race!=u.race)   // tgts are different race
+        //     .map(|tgt_c, tgt_u| 
+        //     )
+
         // println!("Candidate tgts: {:?}", cand_targets);
         let (_, min_coord, tgt_coord) = cand_targets.iter().min()?;
         Some((*min_coord, *tgt_coord))
@@ -155,35 +167,44 @@ impl Cave {
     fn next(&mut self) -> Option<()> {
         let all_coords: Vec<_> = self.units.keys().cloned().collect();
         for unit_coord in all_coords {
-            // println!("Processing for unit at coord {:?}", unit_coord);
-            // println!("------------------------------------");
+            if !self.units.contains_key(&unit_coord) { continue; }
+
+            println!("Processing for unit at coord {:?}", unit_coord);
+            println!("------------------------------------");
             let src_unit = self.units[&unit_coord];
             // Find nearest attack pos in range
-            let (tgt_inrange_coord, tgt_coord) = self.nearest_target(&src_unit)?;
-            // println!("Target in range {:?} of target coord: {:?}", tgt_inrange_coord, tgt_coord);
+            let (tgt_inrange_coord, tgt_coord) = self.nearest_in_range(&src_unit)?;
+            println!("Target in range {:?} of target coord: {:?}", tgt_inrange_coord, tgt_coord);
 
             // Make move if necessary
             let next_coord = self.unit_next(&unit_coord, &tgt_inrange_coord);
             next_coord.map(|c| self.move_unit(&unit_coord, &c));
-            // println!("Moving to next coordinate: {:?}", next_coord);
+            println!("Moving to next coordinate: {:?}", next_coord);
 
             // Perform attack if in range
             next_coord.map(|c| self.attack(&c, &tgt_coord));
-            // println!("");
+            println!("");
         }
         return Some(());
+    }
+
+    fn hit_points_sum(&self) -> i16 {
+        self.units.iter().fold(0, |acc, (&_, &u)| acc + u.hp)
     }
 }
 
 fn main() -> Result<()>
 {
-    let dat = include_str!("Day15.txt");
+    let dat = include_str!("Day15-test1.txt");
     let mut cave = Cave::new(&dat)?;
+    let mut count: u32 = 0;
 
-    println!("{:?}", cave.units);
-    // println!("{:?}", cave.map);
-
-    while let Some(_) = cave.next() { };
+    while let Some(_) = cave.next() { 
+        println!("==================== Round: {}", count+1);
+        count += 1;
+    };
+    let prod = cave.hit_points_sum();
+    println!("Number of rounds: {}, hitpoints: {}, product: {}", count, prod, count*prod as u32);
 
     Ok(())
 }
