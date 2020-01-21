@@ -76,14 +76,13 @@ impl Cave {
     fn distance_map(&self, start: &MapCoord) -> MapType  {
         let mut dmap = MapType::new();
         let mut q: VecDeque<(isize, isize, u16)> = VecDeque::new();
-        let neigh = &[(1,0), (-1,0), (0,1), (0,-1)];        
 
         q.push_back((start.0, start.1, 0));
         while let Some((y,x,d)) = q.pop_front() {
             dmap.insert((y,x), d);
-            for (dy,dx) in neigh{
+            for (dy,dx) in NEIGH_D {
                 let cand = (y+dy, x+dx);
-                if self.units.contains_key(&cand) { continue; }
+                // if self.units.contains_key(&cand) { continue; }
                 let add = match self.map.get(&cand) {
                     Some(&c) => if c==0 {
                                     if !dmap.contains_key(&cand) { true }
@@ -112,6 +111,7 @@ impl Cave {
                 }
             }
         }
+        // println!("Candidate tgts: {:?}", cand_targets);
         let (_, min_coord, tgt_coord) = cand_targets.iter().min()?;
         Some((*min_coord, *tgt_coord))
     }
@@ -125,7 +125,8 @@ impl Cave {
         let (_min_dist, min_coord) = NEIGH_D.iter()
             .filter_map(|(dy,dx)| {
                 let c = (src_coord.0+dy, src_coord.1+dx);
-                dist_to_dst.get(&c).map(|d| (d, c))
+                if self.units.contains_key(&c) { return None; }
+                dist_to_dst.get(&c).map(|d| (d,c) )
             })
             .min()?;
         return Some(min_coord);
@@ -144,26 +145,31 @@ impl Cave {
         if NEIGH_D.contains(&(dst.0-src.0, dst.1-src.1)) {
             let dst_unit = self.units.get_mut(&dst).unwrap();
             dst_unit.hp -= attack;
+            if dst_unit.hp < 0 { 
+                println!("Unit at {:?} killed", dst);
+                self.units.remove(dst);
+            }
         }        
     }
 
     fn next(&mut self) -> Option<()> {
         let all_coords: Vec<_> = self.units.keys().cloned().collect();
         for unit_coord in all_coords {
-            println!("Processing for unit at coord {:?}", unit_coord);
-            println!("------------------------------------");
+            // println!("Processing for unit at coord {:?}", unit_coord);
+            // println!("------------------------------------");
             let src_unit = self.units[&unit_coord];
             // Find nearest attack pos in range
-            let (tgt_inrange_coord, _tgt_coord) = self.nearest_target(&src_unit)?;
-            println!("Target in range {:?} of target coord: {:?}", tgt_inrange_coord, _tgt_coord);
+            let (tgt_inrange_coord, tgt_coord) = self.nearest_target(&src_unit)?;
+            // println!("Target in range {:?} of target coord: {:?}", tgt_inrange_coord, tgt_coord);
 
             // Make move if necessary
             let next_coord = self.unit_next(&unit_coord, &tgt_inrange_coord);
             next_coord.map(|c| self.move_unit(&unit_coord, &c));
-            println!("Moving to next coordinate: {:?}", next_coord);
+            // println!("Moving to next coordinate: {:?}", next_coord);
 
             // Perform attack if in range
-            next_coord.map(|c| self.attack(&c, &tgt_inrange_coord));
+            next_coord.map(|c| self.attack(&c, &tgt_coord));
+            // println!("");
         }
         return Some(());
     }
