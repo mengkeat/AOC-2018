@@ -114,8 +114,8 @@ impl Cave {
     // Returns the coordinate in range and the associated chosen unit's coordinate
     fn nearest_in_range(&self, a: &Unit) -> Option<MapCoord> {
         let cand_targets: Vec<(u16, MapCoord)> = self.units.iter()
-            .filter(|(tgt_c, tgt_u)| a.race!=tgt_u.race)   // tgts are different race
-            .map(|(tgt_c, tgt_u)| self.get_valid_adj(&(a.y, a.x), tgt_c))
+            .filter(|(_tgt_c, tgt_u)| a.race!=tgt_u.race)   // tgts are different race
+            .map(|(tgt_c, _tgt_u)| self.get_valid_adj(&(a.y, a.x), tgt_c))
             .flatten().collect();
         // println!("Candidate tgts: {:?}", cand_targets);
         let (_, min_coord) = cand_targets.iter().min()?;
@@ -158,43 +158,70 @@ impl Cave {
         {
             let mut tgt_unit = self.units.get_mut(&tgt_c).unwrap();
             tgt_unit.hp -= u.attack;
-            if tgt_unit.hp < 0 {
+            if tgt_unit.hp <= 0 {
                 println!("Unit at {:?} killed", tgt_c);
                 self.units.remove(&tgt_c);
             }
-            else {
-                println!("Unit at {:?} attack {:?}", c, tgt_c);
-            }
+            // else {
+            //     println!("Unit at {:?} attack {:?}", c, tgt_c);
+            // }
         }
+    }
+
+    fn total_victory(&self) -> bool {
+        let f: &Unit = self.units.values().nth(0).unwrap();
+        !self.units.values().all(|&u| u.race==f.race )
+    }
+
+    fn print_map(&self) {
+        let (_, max_x) = self.map.keys().max_by_key(|c| c.1).unwrap();
+        println!();
+        for (c, v) in self.map.iter() {
+            if self.units.contains_key(c) {
+                match self.units[c].race  {
+                    Race::Elf => print!("E"),
+                    Race::Goblin => print!("G")
+                }
+            }
+            else {
+                match v {
+                    0 => print!("."),
+                    1 => print!("#"),
+                    _ => print!("?"), 
+                }
+            }
+            if c.1==*max_x { println!(); }
+        }
+        println!();
     }
 
     fn next(&mut self) -> bool {
         let all_coords: Vec<_> = self.units.keys().cloned().collect();
-        let mut has_tgt: bool = false;
+
+        // self.print_map();
 
         for unit_coord in all_coords {
             if !self.units.contains_key(&unit_coord) { continue; }
             let src_unit = self.units[&unit_coord];
 
-            println!("Processing for unit at coord {:?}  hp: {}", unit_coord, src_unit.hp);
-            println!("-------------------------------------------------------");
+            // println!("Processing for unit at coord {:?}  hp: {}", unit_coord, src_unit.hp);
+            // println!("-------------------------------------------------------");
 
             // Find nearest attack pos in range
             let tgt_inrange_coord = self.nearest_in_range(&src_unit);
             if tgt_inrange_coord.is_none() { continue; }
-            has_tgt = true;
-            println!("Target in range {:?} ", tgt_inrange_coord);
+            // println!("Target in range {:?} ", tgt_inrange_coord);
 
             // Make move if necessary
             let next_coord = self.unit_next(&unit_coord, &tgt_inrange_coord.unwrap());
             next_coord.map(|c| self.move_unit(&unit_coord, &c));
-            println!("Moving to next coordinate: {:?}", next_coord);
+            // println!("Moving to next coordinate: {:?}", next_coord);
 
             // Perform attack if in range
             next_coord.map(|c| self.attack_from(&c));
-            println!("");
+            // println!("");
         }
-        return has_tgt;
+        return self.total_victory();
     }
 
     fn hit_points_sum(&self) -> i16 {
@@ -209,7 +236,7 @@ fn main() -> Result<()>
     let mut count: u32 = 0;
 
     while cave.next() { 
-        println!("==================== Round: {}", count+1);
+        // println!("==================== Round: {}", count+1);
         count += 1;
     };
     let prod = cave.hit_points_sum();
