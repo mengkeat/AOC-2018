@@ -50,18 +50,21 @@ impl PartialOrd for Unit {
 struct Cave {
     units: BTreeMap<MapCoord, Unit>,
     map: MapType,
+    orig_elves_count: u16,
 }
 
 impl Cave {
 
     fn new(dat: &str) -> Result<Self> {
-        let mut cave = Cave {units: BTreeMap::new(), map: MapType::new() };
+        let mut cave = Cave {units: BTreeMap::new(), map: MapType::new(), orig_elves_count: 0 };
         for (y, row_str) in dat.lines().enumerate() {
             for (x, ele) in row_str.char_indices() {
                 let _x = x as isize;
                 let _y = y as isize;
                 let map_ele = match ele {
-                    'E' => { cave.units.insert( (_y, _x), Unit{race: Race::Elf, x: _x, y: _y, attack: 3, hp: 200, killed: false}); 0 },
+                    'E' => { cave.units.insert( (_y, _x), Unit{race: Race::Elf, x: _x, y: _y, attack: 3, hp: 200, killed: false}); 
+                        cave.orig_elves_count += 1; 0
+                    },
                     'G' => { cave.units.insert( (_y, _x), Unit{race: Race::Goblin, x: _x, y: _y, attack: 3, hp: 200, killed: false}); 0 },
                     '.' => 0,
                     '#' => 1,
@@ -71,6 +74,14 @@ impl Cave {
             }
         }
         Ok(cave)
+    }
+
+    fn set_elves_attack(&mut self, a: i16) {
+        for (_, unit) in self.units.iter_mut() {
+            if unit.race == Race::Elf {
+                unit.attack = a;
+            }
+        }
     }
 
     fn distance_map(&self, start: &MapCoord, dmap: &mut MapType) {
@@ -156,7 +167,7 @@ impl Cave {
             let mut tgt_unit = self.units.get_mut(&tgt_c).unwrap();
             tgt_unit.hp -= u.attack;
             if tgt_unit.hp <= 0 {
-                println!("Unit at {:?} killed", tgt_c);
+                // println!("Unit at {:?} killed", tgt_c);
                 self.units.remove(&tgt_c);
             }
             // else {
@@ -167,7 +178,11 @@ impl Cave {
 
     fn total_victory(&self) -> bool {
         let f: &Unit = self.units.values().nth(0).unwrap();
-        !self.units.values().all(|&u| u.race==f.race )
+        self.units.values().all(|&u| u.race==f.race )
+    }
+
+    fn all_elves_survive(&self) -> bool {
+        self.units.values().filter(|&u| u.race==Race::Elf).count() == self.orig_elves_count as usize
     }
 
     fn print_map(&self) {
@@ -192,6 +207,7 @@ impl Cave {
         println!();
     }
 
+    // Returns true if no total victory and has to continue battle
     fn next(&mut self) -> bool {
         let all_coords: Vec<_> = self.units.keys().cloned().collect();
 
@@ -218,7 +234,7 @@ impl Cave {
             next_coord.map(|c| self.attack_from(&c));
             // println!("");
         }
-        return self.total_victory();
+        return !self.total_victory();
     }
 
     fn hit_points_sum(&self) -> i16 {
@@ -238,6 +254,19 @@ fn main() -> Result<()>
     };
     let prod = cave.hit_points_sum();
     println!("Number of rounds: {}, hitpoints: {}, product: {}", count, prod, count*prod as u32);
+
+    for e_pow in 4..100 {
+        let mut c = Cave::new(&dat)?;
+        let mut rnds: u32 = 0;
+        println!("Elf power {}", e_pow);
+        c.set_elves_attack(e_pow);
+        while c.next() { rnds += 1; };
+        if c.all_elves_survive() {
+            let p = c.hit_points_sum();
+            println!("Part 2 rounds: {}, hitpoints: {}, product: {} ", rnds, p, rnds*p as u32);
+            break
+        }
+    }
 
     Ok(())
 }
