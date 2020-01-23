@@ -1,4 +1,4 @@
-
+use std::collections::{HashMap, HashSet};
 use std::str::{FromStr};
 use std::result;
 use std::error::Error;
@@ -9,7 +9,7 @@ macro_rules! err {
 
 type Result<T> = result::Result<T, Box<dyn Error>>;
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, Hash, Eq, PartialEq)]
 enum OpCode { 
     Addr, Addi,
     Mulr, Muli,
@@ -101,7 +101,7 @@ fn parse(dat: &Vec<&str>) -> Result<Vec<Sample>> {
     return Ok(samples);
 }
 
-fn compatible_ocode(s: &Sample) -> Vec<OpCode> {
+fn compatible_ocode(s: &Sample) -> HashSet<OpCode> {
     let ocode_lst: Vec<OpCode> = vec![
         OpCode::Addr, OpCode::Addi,
         OpCode::Mulr, OpCode::Muli,
@@ -130,9 +130,33 @@ fn part1(samples: &Vec<Sample>) {
 }
 
 
+fn decode_opcode(samples: &Vec<Sample>) -> HashMap<u8, OpCode> {
+    let op_sample = (0..16).filter_map(|i| samples.iter().find(|s| s.instr.op ==i)).collect::<Vec<_>>();
+    let mut cand: HashMap<u8, HashSet<OpCode>> = op_sample.iter().map(|s| (s.instr.op, compatible_ocode(s))).collect();
+    let mut op_code_map: HashMap<u8, OpCode> = HashMap::new();
+
+    while op_code_map.len()!=16 {
+        let (&n, s) = cand.iter().find(|(_, op_cand)| op_cand.len()==1).unwrap();
+        let v = *s.iter().nth(0).unwrap();
+        op_code_map.insert(n, v);
+
+        cand.remove(&n);
+        for (_, op_set) in cand.iter_mut() {
+            op_set.remove(&v);            
+        }
+    }
+    return op_code_map;
+}
+
+fn part2(samples: &Vec<Sample>) {
+    let op_code_map = decode_opcode(samples);
+    println!("{:?}", op_code_map);
+}
+
 fn main() {
     let dat: Vec<&str> = include_str!("Day16.txt").lines().collect();
-    let dat_samples = parse(&dat).unwrap();
+    let mut dat_samples = parse(&dat).unwrap();
 
     part1(&dat_samples);
+    part2(&dat_samples);
 }
