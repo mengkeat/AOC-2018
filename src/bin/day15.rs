@@ -185,7 +185,7 @@ impl Cave {
         self.units.values().filter(|&u| u.race==Race::Elf).count() == self.orig_elves_count as usize
     }
 
-    fn print_map(&self) {
+    fn _print_map(&self) {
         let (_, max_x) = self.map.keys().max_by_key(|c| c.1).unwrap();
         println!();
         for (c, v) in self.map.iter() {
