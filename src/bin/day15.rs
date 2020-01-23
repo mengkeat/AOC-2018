@@ -73,10 +73,8 @@ impl Cave {
         Ok(cave)
     }
 
-    fn distance_map(&self, start: &MapCoord) -> MapType  {
-        let mut dmap = MapType::new();
+    fn distance_map(&self, start: &MapCoord, dmap: &mut MapType) {
         let mut q: VecDeque<(isize, isize, u16)> = VecDeque::new();
-
         q.push_back((start.0, start.1, 0));
         while let Some((y,x,d)) = q.pop_front() {
             dmap.insert((y,x), d);
@@ -96,19 +94,17 @@ impl Cave {
                 if add && !q.contains(&(cand.0, cand.1, d+1)) { q.push_back((cand.0, cand.1, d+1)); }
             }
         }
-        return dmap;
     }
 
     // Given src and tgt units, computes the valid adjacent (distance, in_range_coord)
     fn get_valid_adj(&self, src: &MapCoord, tgt: &MapCoord) -> Vec<(u16, MapCoord)> {
         let tgt_unit = self.units[&tgt];
-        let dist_to_src = self.distance_map(src);
+        let mut dist_to_src = MapType::new();
+        self.distance_map(src, &mut dist_to_src);
 
         tgt_unit.coords_in_range().iter()
-            .filter_map(|c| match dist_to_src.contains_key(&c) {
-                true => Some((dist_to_src[&c], *c)),
-                _ => None,
-            }).collect()
+            .filter_map(|c| dist_to_src.get(&c).and_then(|d| Some((*d, *c))) )
+            .collect()
     }
 
     // Returns the coordinate in range and the associated chosen unit's coordinate
@@ -127,7 +123,8 @@ impl Cave {
         if src_coord == dst_coord { 
             return Some(*src_coord); 
         }
-        let dist_to_dst = self.distance_map(dst_coord);
+        let mut dist_to_dst = MapType::new();
+        self.distance_map(dst_coord, &mut dist_to_dst);
         let (_min_dist, min_coord) = NEIGH_D.iter()
             .filter_map(|(dy,dx)| {
                 let c = (src_coord.0+dy, src_coord.1+dx);
