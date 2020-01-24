@@ -77,8 +77,9 @@ fn exe(reg: &Register, op_code: &OpCode, a: &i64, b: &i64, c: &i64) -> Register 
     return r;
 }
 
-fn parse(dat: &Vec<&str>) -> Result<Vec<Sample>> {
+fn parse(dat: &Vec<&str>) -> Result<(Vec<Sample>, Vec<Instruction>)> {
     let mut samples: Vec<Sample> = Vec::new();
+    let mut prog: Vec<Instruction> = Vec::new();
     let mut ptr = dat.iter();
     
     while let Some(line) = ptr.next() {
@@ -94,11 +95,15 @@ fn parse(dat: &Vec<&str>) -> Result<Vec<Sample>> {
             });
             ptr.next();                                 
         }
-        else { // To be filled in later to cater for program
-            break;
+        else if line.trim().len()==0 { // To be filled in later to cater for program
+            continue;
+        }
+        else {
+            let i: Instruction = line.parse().unwrap();
+            prog.push(i);
         }
     }
-    return Ok(samples);
+    return Ok((samples, prog));
 }
 
 fn compatible_ocode(s: &Sample) -> HashSet<OpCode> {
@@ -148,15 +153,19 @@ fn decode_opcode(samples: &Vec<Sample>) -> HashMap<u8, OpCode> {
     return op_code_map;
 }
 
-fn part2(samples: &Vec<Sample>) {
+fn part2(samples: &Vec<Sample>, prog: &Vec<Instruction>) {
     let op_code_map = decode_opcode(samples);
-    println!("{:?}", op_code_map);
+
+    let reg = prog.iter()
+                .fold(Register([0,0,0,0]), 
+                        |acc, i| exe(&acc, &op_code_map[&i.op], &i.a, &i.b, &i.c) );
+    println!("Part 2: {}", reg.0[0]);
 }
 
 fn main() {
     let dat: Vec<&str> = include_str!("Day16.txt").lines().collect();
-    let mut dat_samples = parse(&dat).unwrap();
+    let (dat_samples, prog) = parse(&dat).unwrap();
 
     part1(&dat_samples);
-    part2(&dat_samples);
+    part2(&dat_samples, &prog);
 }
