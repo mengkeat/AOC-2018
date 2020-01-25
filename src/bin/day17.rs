@@ -17,8 +17,8 @@ enum Tile {
 
 type GroundMap = HashMap<Coord, Tile>;
 
-fn left(c: &Coord)  -> Coord { (c.0-1, c.1) }
-fn right(c: &Coord) -> Coord { (c.0+1, c.1) }
+// fn left(c: &Coord)  -> Coord { (c.0-1, c.1) }
+// fn right(c: &Coord) -> Coord { (c.0+1, c.1) }
 fn down(c: &Coord)  -> Coord { (c.0, c.1+1) }
 fn up(c: &Coord)    -> Coord { (c.0, c.1-1) }
 
@@ -56,8 +56,13 @@ impl Ground {
     }
 
     fn print_map(&self) {
-        for y in self.min_y..self.max_y+1 {
-            for x in self.min_x..self.max_x+1 {
+        let min_x = self.map.keys().min_by_key(|c| c.0).unwrap().0;
+        let max_x = self.map.keys().max_by_key(|c| c.0).unwrap().0;
+
+        let min_y = self.map.keys().min_by_key(|c| c.1).unwrap().1;
+        let max_y = self.map.keys().max_by_key(|c| c.1).unwrap().1;
+        for y in min_y..max_y+1 {
+            for x in min_x..max_x+1 {
                 if self.map.contains_key(&(x,y)) {
                     match self.map[&(x,y)] {
                         Tile::Clay => print!("#"),
@@ -81,7 +86,7 @@ impl Ground {
         while *self.map.entry((c.0+dx, c.1)).or_insert(Tile::Flow) != Tile::Clay {
             c = (c.0+dx, c.1);
             pts.push(c);
-            if !self.map.contains_key(&down(&c)) {
+            if !self.map.contains_key(&down(&c)) || self.map[&down(&c)]==Tile::Flow {
                 barrier = false;
                 break;
             }
@@ -94,29 +99,30 @@ impl Ground {
     fn exit_points(&mut self, pos: &Coord) -> (Option<Coord>, Option<Coord>) {
         let mut left_exit: Option<Coord> = None;
         let mut right_exit: Option<Coord> = None;
-        // let mut vert_st: Vec<Coord> = Vec::new();
         let mut c: Coord = *pos;
-        while *self.map.entry(down(&c)).or_insert(Tile::Flow) != Tile::Clay {
+        while !self.map.contains_key(&down(&c)) {
             c = down(&c);
             if c.1 > self.max_y {
                 return (None, None);
             }
+            self.map.insert(c, Tile::Flow);
         }
+        if self.map[&down(&c)]==Tile::Flow { return (None, None); }
         while left_exit==None && right_exit==None {
             let (left_st, left_barrier)  = self.flow_horizontal(&c, -1);
             let (right_st, right_barrier) = self.flow_horizontal(&c, 1);
             if left_barrier && right_barrier { // barriers on both sides
                 for leftc in left_st { self.map.entry(leftc).and_modify(|e| *e = Tile::Still); }
-                self.map.entry(c).and_modify(|e| *e = Tile::Still);
+                *self.map.entry(c).or_insert(Tile::Still) = Tile::Still;
                 for rightc in right_st {self.map.entry(rightc).and_modify(|e| *e = Tile::Still); }
                 c = up(&c);
             }
             else { // one side or both will flow down
                 if !left_barrier { left_exit = left_st.last().map(|v| *v); }
                 if !right_barrier { right_exit = right_st.last().map(|v| *v); }
+                self.map.entry(c).or_insert(Tile::Flow);
             }
         }
-        // unravel from stack and find exit points
         (left_exit, right_exit)
     }
 
@@ -137,8 +143,10 @@ impl Ground {
     }
 
     fn water_reached(&self) -> usize {
-        self.map.values()
-            .filter(|v| **v==Tile::Flow || **v==Tile::Still)
+        self.map.iter()
+            .filter(|(c, v)| 
+                c.1 >= self.min_y && c.1 <=self.max_y &&
+                (**v==Tile::Flow || **v==Tile::Still) )
             .count()
     }
 }
@@ -150,6 +158,7 @@ fn main() ->  Result<()> {
 
     let mut ground = Ground::new(&dat);
     ground.start_flow(&(500,0));
+    ground.print_map();
     println!("Part 1: {}", ground.water_reached());
 
     Ok(())
