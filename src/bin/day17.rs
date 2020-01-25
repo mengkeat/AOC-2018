@@ -8,13 +8,19 @@ use std::result;
 // }
 
 type Result<T> = result::Result<T, Box<dyn Error>>;
+type Coord = (i64, i64);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum Tile {
     Clay, Still, Flow
 }
 
-type GroundMap = HashMap<(i64, i64), Tile>;
+type GroundMap = HashMap<Coord, Tile>;
+
+fn left(c: &Coord)  -> Coord { (c.0-1, c.1) }
+fn right(c: &Coord) -> Coord { (c.0+1, c.1) }
+fn down(c: &Coord)  -> Coord { (c.0, c.1+1) }
+fn up(c: &Coord)    -> Coord { (c.0, c.1-1) }
 
 #[derive(Debug, Clone)]
 struct Ground {
@@ -65,10 +71,76 @@ impl Ground {
         }
     }
 
-    // fn start_flow(&mut self) {
+    // Flows water in the x direction with delta dx.
+    // Returns: Stack of explored directions
+    //         True if barrier reached. False if flow down
+    fn flow_horizontal(&mut self, start: &Coord, dx: i64) -> (Vec<Coord>, bool) {
+        let mut barrier = true;
+        let mut pts: Vec<Coord> = Vec::new();
+        let mut c: Coord = *start;
+        while *self.map.entry((c.0+dx, c.1)).or_insert(Tile::Flow) != Tile::Clay {
+            c = (c.0+dx, c.1);
+            pts.push(c);
+            if !self.map.contains_key(&down(&c)) {
+                barrier = false;
+                break;
+            }
+        }
+        (pts, barrier)
+    }
 
-    // }
+    // Flows down from pos and starts filling up. Returns the left and 
+    // right points of overflow positions which will flow down if any.
+    fn exit_points(&mut self, pos: &Coord) -> (Option<Coord>, Option<Coord>) {
+        let mut left_exit: Option<Coord> = None;
+        let mut right_exit: Option<Coord> = None;
+        // let mut vert_st: Vec<Coord> = Vec::new();
+        let mut c: Coord = *pos;
+        while *self.map.entry(down(&c)).or_insert(Tile::Flow) != Tile::Clay {
+            c = down(&c);
+            if c.1 > self.max_y {
+                return (None, None);
+            }
+        }
+        while left_exit==None && right_exit==None {
+            let (left_st, left_barrier)  = self.flow_horizontal(&c, -1);
+            let (right_st, right_barrier) = self.flow_horizontal(&c, 1);
+            if left_barrier && right_barrier { // barriers on both sides
+                for leftc in left_st { self.map.entry(leftc).and_modify(|e| *e = Tile::Still); }
+                self.map.entry(c).and_modify(|e| *e = Tile::Still);
+                for rightc in right_st {self.map.entry(rightc).and_modify(|e| *e = Tile::Still); }
+                c = up(&c);
+            }
+            else { // one side or both will flow down
+                if !left_barrier { left_exit = left_st.last().map(|v| *v); }
+                if !right_barrier { right_exit = right_st.last().map(|v| *v); }
+            }
+        }
+        // unravel from stack and find exit points
+        (left_exit, right_exit)
+    }
 
+    fn start_flow(&mut self, start: &Coord) {
+        let mut st: Vec<Coord> = Vec::new();
+        st.push(*start);
+
+        while st.len()!=0 {
+            let c = st.pop().unwrap();
+            let (let_exit, right_exit) = self.exit_points(&c);
+            if let Some(lcoord) = let_exit {
+                st.push(lcoord);
+            }
+            if let Some(rcoord) = right_exit {
+                st.push(rcoord);
+            }
+        }
+    }
+
+    fn water_reached(&self) -> usize {
+        self.map.values()
+            .filter(|v| **v==Tile::Flow || **v==Tile::Still)
+            .count()
+    }
 }
 
 fn main() ->  Result<()> {
@@ -76,8 +148,9 @@ fn main() ->  Result<()> {
     let mut dat = String::new();
     io::stdin().read_to_string(&mut dat)?;
 
-    let ground = Ground::new(&dat);
-    ground.print_map();
+    let mut ground = Ground::new(&dat);
+    ground.start_flow(&(500,0));
+    println!("Part 1: {}", ground.water_reached());
 
     Ok(())
 }
