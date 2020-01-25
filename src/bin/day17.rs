@@ -149,6 +149,12 @@ impl Ground {
                 (**v==Tile::Flow || **v==Tile::Still) )
             .count()
     }
+
+    fn water_retained(&self) -> usize {
+        self.map.values()
+            .filter(|v| **v==Tile::Still )
+            .count()
+    }
 }
 
 fn main() ->  Result<()> {
@@ -160,6 +166,6 @@ fn main() ->  Result<()> {
     ground.start_flow(&(500,0));
     ground.print_map();
     println!("Part 1: {}", ground.water_reached());
-
+    println!("Part 2: {}", ground.water_retained());
     Ok(())
 }
